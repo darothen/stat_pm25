@@ -655,7 +655,7 @@ class DatasetFunctionTransformer(TransformerMixin, NoFitMixin):
         return _X.apply(self.func)
 
 
-class DatasetAdapter(TransformerMixin):
+class DatasetAdapter(TransformerMixin, NoFitMixin):
     """ Mutate the given fields into a Dataset into a 2D array such that
     each field is contained in a separate column. """
 
@@ -663,11 +663,7 @@ class DatasetAdapter(TransformerMixin):
         self.fields = fields
         self.drop = drop
 
-    #@logger
-    def fit(self, X, y=None):
-        return self
-
-    #@logger
+    # @logger
     def transform(self, X):
         _X = X.copy()
 

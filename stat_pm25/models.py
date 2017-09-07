@@ -28,7 +28,7 @@ from .util import (stack_fields, _clean_xy, logger)
 from .sklearn import (DatasetSelector, MonthSelector,
                       YearlyMovingAverageDetrender, FieldExtractor, Normalizer,
                       Stacker, DatasetAdapter, DatasetFeatureUnion,
-                      dataset_yearly_loo_cv)
+                      dataset_yearly_loo_cv, GridCellFactor, GridCellResult)
 
 #: Pseudo-class for quickly evaluating timeseries fits at given locations
 Site = namedtuple("Site", ['name', 'lon', 'lat'])
@@ -641,21 +641,24 @@ class Shen2017Model(object):
         transformer = make_transformer(self.predictors, gcf, self.hybrid)
         if self.cv is None:
             _model = SelectBestFeatures(
-                self.estimator, transformer#, verbose=self.verbose
+                self.estimator, transformer, # verbose=self.verbose
             )
         else:
             _model = SelectBestFeaturesWithCV(
                 self.estimator, transformer, cv=dataset_yearly_loo_cv,
-                #verbose=self.verbose
+                # verbose=self.verbose
             )
 
         # Try to fit the model
         try:
+            print(gcf, end=" ")
             _model.fit(self.to_model, y)
 
             _score = _model.score(self.to_model, y)
+            print(_score)
             gcr = GridCellResult(_model, self.predictand, _model.features_, _score)
         except:
+            print("FAIL")
             gcf, gcr = None, None
 
         return gcf, gcr

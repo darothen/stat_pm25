@@ -36,6 +36,7 @@ if __name__ == "__main__":
     print("Initializing model...")
     obs_model = Shen2017Model(
         obs_data, month=args.month, mask=mask,
+        # lat_range=(30, 33), lon_range=(-80, -78),
         verbose=True, n_predictors=3, hybrid=do_hybrid, cv=args.cv
     )
 
@@ -44,5 +45,9 @@ if __name__ == "__main__":
     obs_model.fit_parallel(-1)
     
     # Save output
+    print("Saving to", args.output)
     obs_model.to_pickle(args.output)
 
+    # Test prediction
+    print("Making test prediction")
+    obs_model.predict(obs_data).to_netcdf("test.pred.nc")

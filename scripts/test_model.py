@@ -22,7 +22,7 @@ predictors = ['TEMP', 'RH', 'PRECIP', 'U', 'V']
 dilon, dilat = 6, 4
 month = 6
 
-data = xr.open_dataset("../data/obs.usa_subset.nc")
+data = xr.open_dataset("data/obs.usa_subset.nc")
 mask = np.isnan(data.PRECIP.isel(time=0)).rename("CONUS_MASK")
 
 # site_lon = -82.5
