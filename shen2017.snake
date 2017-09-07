@@ -1,0 +1,153 @@
+""" (Snake)makefile for automating data extraction and analysis for statistical
+PM2.5 modeling project.
+
+"""
+
+from collections import namedtuple
+from itertools import product
+
+# Prepare some attributes for the variables we want
+attr_tup = namedtuple("attr", ["field", "long_name", "units"])
+attrs = [
+    attr_tup("PM25", "Particulate matter >2.5 micron", "ug/m3"),
+    attr_tup('TEMP', "Temperature", "K"),
+    attr_tup("PRECIP", "Precipitation", "mm/day"),
+    attr_tup("RH", "Relative humidity", "%"),
+    attr_tup("U", "Zonal winds", "m/s"),
+    attr_tup("V", "Meridional winds", "m/s"),
+]
+
+
+rule extract_shen2017_from_fgm:
+    """ Extract the core meteorology and PM2.5 fields for reproducing the Shen
+    et al (2017) analysis from the FGM ensemble. """
+    output:
+        "data/fgm.all_cases.usa_subset.nc"
+    run:
+        import xarray as xr
+        from experiment import Experiment, Case
+        ROOT_DIR = "/net/fs11/d0/darothen/IGSM-CAM-Chem"
+        pols = Case("pol", "Emissions Policy", ["REF", "P37", "P45"])
+        css = Case("cs", "Climate Sensitivity",
+                   # [20, 30, 45]
+                   [30, ]
+        )
+        ics = Case("ic", "Initial Conditions", [1, 2, 3, 4, 5])
+        decs = Case("dec", "Decadal Period",
+                    ["1980-2010", "2035-2065", "2085-2115"])
+        cases = pols, css, ics, decs
+
+        fgm_exp = Experiment("fgm_proc", cases, timeseries=True, data_dir=ROOT_DIR,
+                             case_path="{pol}.CS{cs}.IC{ic}.{dec}",
+                             output_prefix="{pol}.CS{cs}.IC{ic}.{dec}.",
+                            output_suffix=".monthly.nc", validate_data=False)
+        print(fgm_exp)
+
+
+        data_fgm = {}
+        for key in ['TREFHT', 'RELHUM_SRF', 'PRECT', 'U_SRF', 'V_SRF']:#, 'PM25']:
+            print(key)
+            data_fgm[key] = (
+                # Load in each dataset, selecting just the field corresponding to
+                # the filename (only matters for PM25)
+                fgm_exp.load(key, master=True,
+                             preprocess=lambda x, **kwargs: x[[key, ]],
+                             load_kws=dict(chunks={'lat': 72, 'lon': 48}))
+                # Manually decode CF
+                .pipe(xr.decode_cf)
+                [key]
+            )
+
+        data_fgm_all = xr.Dataset()
+        # data_fgm_all['PM25'] = data_fgm['PM25']
+        data_fgm_all['TEMP'] = data_fgm['TREFHT']
+        # Precipitation here is in m/s, but we want mm/day
+        data_fgm_all['PRECIP'] = data_fgm['PRECT'] * 1000. * 3600. * 24
+        data_fgm_all['RH'] = data_fgm['RELHUM_SRF']
+        data_fgm_all['U'] = data_fgm['U_SRF']
+        data_fgm_all['V'] = data_fgm['V_SRF']
+
+        # Squeeze out extra lev and case dims
+        data_fgm_all = data_fgm_all.squeeze()
+
+        # Also need to shift lons since we're on [0, 360] right now, but would prefer [-180, 180]
+        from darpy import shift_lons
+        data_fgm_all = shift_lons(data_fgm_all)
+        # NOTE: We don't need to roll the longitudes into the correct, monotonic order
+        #       because we're ultimately going to subset the USA grid cells, which are all
+        #       negative values of lon.
+        data_fgm_all = data_fgm_all.roll(lon=71)
+
+        import datetime
+        a = datetime.datetime.now()
+        now = a.strftime("%b %d, %Y %H:%M")
+
+        for attr in attrs:
+            if attr not in data_fgm_all: continue
+            data_fgm_all[attr.field].attrs.update({
+                'long_name': attr.long_name, 'units': attr.units
+            })
+
+        from darpy import append_history
+        data_fgm_all = append_history(
+            data_fgm_all,
+            "shen2017.snake:extract_shen2017_from_fgm",
+            extra_info="Adapted from 09_lu_shen_reproduction.ipynb"
+        )
+
+        # Extract just the USA
+        from air_quality.util import extract_usa
+        data_fgm_usa = extract_usa(data_fgm_all)
+
+        # Save to disk
+        data_fgm_usa.to_netcdf(output[0])
+
+
+rule fit_all_obs_models:
+    input:
+        expand("data/models/obs.{case}.{month}.p",
+               case=['local', 'hybrid'], month=range(1, 13))
+
+rule fit_obs_model:
+    input:
+        "data/obs.usa_subset.nc"
+    output:
+        "data/models/obs.{case}.{month}.p"
+    shell:
+        """
+        python scripts/fit_shen2017_model.py --month {wildcards.month} --case {wildcards.case} {input} {output}
+        """
+
+#    run:
+#        import xarray as xr
+#        import numpy as np
+
+#        month = int(wildcards['month'])
+#        case = wildcards['case']
+
+#        from air_quality.models.shen2017 import Shen2017Model
+#        predictand = 'PM25'
+#        predictors = ['TEMP', 'RH', 'PRECIP', 'U', 'V']
+#        dilon, dilat = 6, 4
+
+#        obs_data = xr.open_dataset(input[0])
+#        # Mask out cells where we have no PRECIP data
+#        mask = np.isnan(obs_data.PRECIP.isel(time=0)).rename("CONUS_MASK")
+
+#        do_hybrid = case == 'hybrid'
+#        obs_model = Shen2017Model(
+#            obs_data, month=month, mask=mask,
+#            verbose=True, n_predictors=3, hybrid=do_hybrid, cross_validate=True
+#        )
+
+#        # Fit the model
+#        obs_model.fit_parallel(-1)
+
+#        # Save output
+#        obs_model.to_pickle(output[0])
+
+rule test_affinity:
+    run:
+        import os
+        affin = os.sched_getaffinity(0)
+        print(affin)
