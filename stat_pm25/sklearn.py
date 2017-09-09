@@ -379,12 +379,17 @@ def dataset_yearly_loo_cv(X, y=None, dim='time'):
     """ Generate training/testing index splits by iterating over the
     years present in the timestamp observations for a Dataset.
 
+    For example, if you have 12 years of monthly output (for a total of
+    144 indices along your time dimension), this cross-validator will
+    create 12 folds, each with 12 months of training data and 132 months
+    of testing data.
+
     Parameters
     ----------
     X : Dataset
         A Datset containing feature vectors as unique Variables, aligned on
         common axes
-    y : np.array
+    y : np.array (optional; not used)
         A Vector of predictands corresponding to each observation in the Dataset
     dim : str (optional; default='time')
         Dimension corresponding to time values; should be the observational
