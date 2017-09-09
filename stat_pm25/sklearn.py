@@ -265,6 +265,21 @@ class DatasetModel(object):
     #
     #     return attr_ds[[attr, ]]
 
+    @property
+    def score(self):
+        # Construct a template/strawman Dataset for holding the attribute data
+        attr_ds = self.data[[self.predictand, ]].copy()
+        ref_field = attr_ds[self.predictand].isel(time=0)
+        vals = ref_field.values
+
+        for gcr, gcf in self._gcr_gcf_iter:
+            if gcr is None:
+                continue
+
+            vals[gcf.ilat, gcf.ilon] = gcr.score
+        ref_field.name = 'score'
+        return ref_field
+
     def predict(self, X, preprocess=True):
         """ Predict new data using the fitted models.
 

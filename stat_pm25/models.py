@@ -508,6 +508,63 @@ class SimpleRegress(DatasetModel):
         return gcr
 
 
+class Shen2017Model(DatasetModel):
+
+    def __init__(self, *args,
+                 month=6, dilon=6, dilat=4,
+                 hybrid=False, n_predictors=3, cv=None,
+                 **kwargs):
+        self.month = month
+        self.dilon = dilon
+        self.dilat = dilat
+
+        self.hybrid = hybrid
+        self.n_predictors = n_predictors
+        self.cv = cv
+
+        self.preprocessor = Pipeline([
+            ('subset_time', MonthSelector(self.month)),
+            ('detrend', YearlyMovingAverageDetrender())
+        ])
+
+        super().__init__(*args, **kwargs)
+
+    def cell_kernel(self, gcf):
+        local_selector = DatasetSelector(sel='isel', lon=gcf.ilon,
+                                         lat=gcf.ilat)
+        y = local_selector.fit_transform(self.data[self.predictand])
+
+        # Short-circuit model fitting if we have no usable data
+        if np.all(y.isnull()):
+            return None, None
+
+        transformer = make_transformer(self.predictors, gcf, self.hybrid)
+        estimator = Pipeline([
+            ('dataset_to_array', DatasetAdapter(drop=['lat', 'lon'])),
+            ('linear', LinearRegression()),
+        ])
+        if self.cv is None:
+            _model = SelectBestFeatures(estimator, transformer)
+        else:
+            _model = SelectBestFeaturesWithCV(
+                estimator, transformer, cv=dataset_yearly_loo_cv
+            )
+
+        try:
+            print(gcf, end=" ")
+            _model.fit(self.data, y)
+
+            _score = _model.score(self.data, y)
+            print(_score)
+            gcr = GridCellResult(_model, self.predictand, self.predictors,
+                                 _score)
+        except:
+            print("FAIL")
+            gcr = None
+
+        return gcr
+
+
 class OldShen2017Model(object):
     """ Encapsulation of predictive model derived by Shen et al (2017).
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """ Fit the Shen et al (2017) model for a specific dataset. """
-from stat_pm25.models import SimpleRegress, OldShen2017Model
+from stat_pm25.models import Shen2017Model
 
 import numpy as np
 import xarray as xr
@@ -33,13 +33,15 @@ if __name__ == "__main__":
     mask = np.isnan(obs_data.PRECIP.isel(time=0)).rename("CONUS_MASK")
     
     do_hybrid = args.case == 'hybrid'
+    if do_hybrid:
+        print("Including hybrid synoptic modes...")
     print("Initializing model...")
     # obs_model = SimpleRegress(
     #     obs_data, predictand, predictors, month=args.month, mask=mask,
     #     # lat_range=(30, 33), lon_range=(-80, -78),
     #     verbose=True, # n_predictors=3, hybrid=do_hybrid, cv=args.cv
     # )
-    obs_model = OldShen2017Model(
+    obs_model = Shen2017Model(
         obs_data,
         month=args.month, dilon=dilon, dilat=dilat,
         predictand=predictand,
@@ -58,4 +60,10 @@ if __name__ == "__main__":
 
     # Test prediction
     print("Making test prediction")
-    obs_model.predict(obs_data).to_netcdf("test.pred.nc")
+    y = obs_model.data[[predictand, ]].rename(
+        {predictand: predictand+'_ref'}
+    )
+    y_hat = obs_model.predict(obs_data)
+    score = obs_model.score.to_dataset()
+    result = xr.auto_combine([y, y_hat, score])
+    result.to_netcdf("shen2017.pred.nc")
