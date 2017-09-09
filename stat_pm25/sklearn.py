@@ -513,10 +513,11 @@ class MonthSelector(TransformerMixin, NoFitMixin):
     """ Select timesteps corresponding to and surrounding a given month
     from a dataset. """
 
-    def __init__(self, month, dim='time'):
+    def __init__(self, month, width=1, dim='time'):
         self.month = month
         self.dim = dim
-        self._months = _months_surrounding(self.month)
+        self._months = \
+            _months_surrounding(self.month) if width else [self.month, ]
 
     #@logger
     def transform(self, X):

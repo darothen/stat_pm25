@@ -25,13 +25,41 @@ def find_nearest(array, value):
     return idx
 
 
-def _months_surrounding(month):
+def _months_surrounding(month, width=1):
     """ Create a tuple with the ordinal of the given month and the ones before
-    and after it, wrapping around the calendar. """
+    and after it up to a certain width, wrapping around the calendar.
 
-    lo = month - 1 if month > 1 else 12
-    hi = month + 1 if month < 12 else 1
-    return lo, month, hi
+    Parameters
+    ----------
+    month : int
+        Ordinal of month, e.g. July is 7
+    width : int
+        Amount of buffer months to include on each side
+
+    Examples
+    --------
+
+    Grab July with June and August
+
+    >>> _months_surrounding(7, 1)
+    (6, 7, 8)
+
+    """
+
+    # Edge case: all months
+    if width >= 6:
+        return tuple(range(1, 12+1))
+
+    lo = month - width
+    hi = month + width
+    months = []
+    for m in range(lo, hi+1):
+        if m < 1:
+            m += 12
+        elif m > 12:
+            m -= 12
+        months.append(m)
+    return tuple(months)
 
 
 def model_to_obs_grid(model_data, obs_def, mod_def, coords={}):

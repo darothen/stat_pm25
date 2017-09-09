@@ -16,15 +16,16 @@ class PCRModel(DatasetModel):
 
     """
 
-    def __init__(self, *args, month=6, **kwargs):
+    def __init__(self, *args, month=6, n_components=3, **kwargs):
         self.month = month
+        self.n_components = n_components
 
         # Zero out dilat and dilon, since we don't need to search around
         # neighboring grid cells
         self.dilat = self.dilon = 0
 
         self.preprocessor = Pipeline([
-            ('subset_time', MonthSelector(self.month)),
+            ('subset_time', MonthSelector(self.month, width=0)),
             ('detrend', YearlyMovingAverageDetrender())
         ])
 
@@ -55,9 +56,8 @@ class PCRModel(DatasetModel):
             ),
             ('predictors', FieldExtractor(self.predictors)),
             ('normalize', Normalizer()),
-            ('dataset_to_array', DatasetAdapter(
-                drop=['lat', 'lon'])),
-            ('pca', PCA(n_components=3)),
+            ('dataset_to_array', DatasetAdapter(drop=['lat', 'lon'])),
+            ('pca', PCA(n_components=self.n_components)),
             ('linear', LinearRegression()),
         ])
 
