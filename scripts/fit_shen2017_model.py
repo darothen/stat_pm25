@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """ Fit the Shen et al (2017) model for a specific dataset. """
-from stat_pm25.models import Shen2017Model
+from stat_pm25.models import SimpleRegress, OldShen2017Model
 
 import numpy as np
 import xarray as xr
@@ -34,10 +34,18 @@ if __name__ == "__main__":
     
     do_hybrid = args.case == 'hybrid'
     print("Initializing model...")
-    obs_model = Shen2017Model(
-        obs_data, month=args.month, mask=mask,
-        # lat_range=(30, 33), lon_range=(-80, -78),
-        verbose=True, n_predictors=3, hybrid=do_hybrid, cv=args.cv
+    # obs_model = SimpleRegress(
+    #     obs_data, predictand, predictors, month=args.month, mask=mask,
+    #     # lat_range=(30, 33), lon_range=(-80, -78),
+    #     verbose=True, # n_predictors=3, hybrid=do_hybrid, cv=args.cv
+    # )
+    obs_model = OldShen2017Model(
+        obs_data,
+        month=args.month, dilon=dilon, dilat=dilat,
+        predictand=predictand,
+        predictors=predictors, mask=mask,
+        hybrid=do_hybrid, n_predictors=3, cv=args.cv,
+        verbose=True
     )
 
     print("Fitting model...")

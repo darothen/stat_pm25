@@ -16,7 +16,7 @@ setup(
     version=VERSION,
     license=LICENSE,
     author=AUTHOR, author_email=AUTHOR_EMAIL,
-    packages=find_packages()r,
+    packages=find_packages(),
     # package_dir={'': 'src'},
     scripts=[],
 )

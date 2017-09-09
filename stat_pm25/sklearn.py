@@ -38,7 +38,9 @@ class DatasetModel(object):
 
     """
 
-    def __init__(self, data, predictand, predictors, preprocessor=None,
+    preprocessor = None
+
+    def __init__(self, data, predictand, predictors,
                  grid_stack=['lat', 'lon'], cell_name='cell',
                  lon_range=None, lat_range=None, mask=None,
                  verbose=False):
@@ -53,12 +55,6 @@ class DatasetModel(object):
             Name of predictand field
         predictors : list of str
             List of names of predictor fields
-        preprocessor : Pipeline or Transformer
-            Analysis tool to prepare the raw data before a model is fit to
-            it. This should operate on the raw data as a Dataset, and produce
-            an output Dataset.
-        estimator : Pipeline
-            Estimator pipeline to fit at every grid cell. Should *always*
         grid_stack : list of str
             Dimensions to collapse to produce linear vector of feature sets
         cell_name : str
@@ -94,15 +90,12 @@ class DatasetModel(object):
         self._grid_cell_results = []
         self._grid_cell_factors = []
 
-        # Pre_processor
-        self.preprocessor = preprocessor
-
         # Fit our pre-processor for later transformation
-        if self.preprocesser is not None:
+        if self.preprocessor is not None:
             if self.verbose > 0:
                 print("Fitting pre-processor...")
             self._data = self.preprocessor.fit_transform(self._data)
-        self.to_model = self.data[self.predictors]
+        # self.to_model = self._data[self.predictors]
 
     @property
     def data(self):
@@ -190,9 +183,9 @@ class DatasetModel(object):
             _score = _model.score(self.to_model, y)
             gcr = GridCellResult(_model, self.predictand, _model.features_, _score)
         except:
-            gcf, gcr = None, None
+            gcr = None
 
-        return gcf, gcr
+        return gcr
 
 
     def _fit_cell(self, ilon, ilat):
@@ -219,7 +212,7 @@ class DatasetModel(object):
                 return None, None
 
         # Fit the cell kernel if all is well
-        return self.cell_kernel(gcf)
+        return gcf, self.cell_kernel(gcf)
 
     def fit_parallel(self, n_jobs=3, **kwargs):
         """ Similar to fit(), but using a parallel invocation. """
@@ -280,7 +273,9 @@ class DatasetModel(object):
         if preprocess and (self.preprocessor is not None):
             X = clone(self.preprocessor).fit_transform(X)
 
-        predicted = X.copy().drop(self.predictors) * np.nan
+        # Drop fields which aren't in the list of predictors
+        predicted = X[[self.predictand, ]].copy() * np.nan
+        X = X[self.predictors]
         #_pred = predicted[self.predictand].values
 
         for gcr, gcf in self._gcr_gcf_iter:
@@ -312,7 +307,7 @@ class GridCellFactor(object):
 
     """
 
-    def __init__(self, ilon, ilat, dilon, dilat):
+    def __init__(self, ilon, ilat, dilon=None, dilat=None):
 
         self.ilon = ilon
         self.ilat = ilat
@@ -321,12 +316,14 @@ class GridCellFactor(object):
 
     @property
     def ilat_range(self):
+        if self.dilat is None: return None
         lat_lo, lat_hi = self.ilat-self.dilat-1, self.ilat+self.dilat
         lat_lo = 0 if lat_lo < 0 else lat_lo
         return slice(lat_lo, lat_hi)
 
     @property
     def ilon_range(self):
+        if self.dilon is None: return None
         lon_lo, lon_hi = self.ilon-self.dilon-1, self.ilon+self.dilon
         lon_lo = 0 if lon_lo < 0 else lon_lo
         return slice(lon_lo, lon_hi)
@@ -548,7 +545,7 @@ class Normalizer(TransformerMixin):
         self.dim = dim
         self.copy = copy
         self.with_mean = with_mean
-        self.with_std = True
+        self.with_std = with_std
         self.mean_ = None
         self.scale_ = None
 

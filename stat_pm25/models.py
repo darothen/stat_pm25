@@ -23,12 +23,14 @@ from sklearn.base import TransformerMixin
 from sklearn.base import BaseEstimator, clone
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression
+from sklearn.decomposition import PCA
 
 from .util import (stack_fields, _clean_xy, logger)
 from .sklearn import (DatasetSelector, MonthSelector,
                       YearlyMovingAverageDetrender, FieldExtractor, Normalizer,
                       Stacker, DatasetAdapter, DatasetFeatureUnion,
-                      dataset_yearly_loo_cv, GridCellFactor, GridCellResult)
+                      dataset_yearly_loo_cv, GridCellFactor, GridCellResult,
+                      DatasetModel)
 
 #: Pseudo-class for quickly evaluating timeseries fits at given locations
 Site = namedtuple("Site", ['name', 'lon', 'lat'])
@@ -448,8 +450,65 @@ def _calc_svd(F):
     return u, v, evr
 
 
+class SimpleRegress(DatasetModel):
 
-class Shen2017Model(object):
+    def __init__(self, *args, month=6, **kwargs):
+        self.month = month
+        self.dilat = self.dilon = 0
+
+        self.preprocessor = Pipeline([
+            ('subset_time', MonthSelector(self.month)),
+            ('detrend', YearlyMovingAverageDetrender())
+        ])
+
+        super().__init__(*args, **kwargs)
+
+    def cell_kernel(self, gcf):
+        """ Using the information in the passed GridCellFactor, prepare
+        data transformations and fit a model.
+
+        This method should be prepared by the user; it's the only element
+        that needs to be built to create a new machine learning model. It
+        should return the original GridCellFactor passed to it, as well as
+        a GridCellResult encapsulating the model fit for this GridCellFactor.
+
+        """
+
+        local_selector = DatasetSelector(sel='isel', lon=gcf.ilon,
+                                         lat=gcf.ilat)
+        y = local_selector.fit_transform(self.data[self.predictand])
+
+        # Short-circuit model fitting if we have no usable data
+        # if np.all(y.isnull()):
+        #     return None, None
+
+        _model = Pipeline([
+            ('subset_latlon', DatasetSelector(
+                sel='isel', lon=gcf.ilon, lat=gcf.ilat)
+            ),
+            ('predictors', FieldExtractor(self.predictors)),
+            ('normalize', Normalizer()),
+            ('dataset_to_array', DatasetAdapter(
+                drop=['lat', 'lon'])),
+            ('pca', PCA(n_components=3)),
+            ('linear', LinearRegression()),
+        ])
+
+        try:
+            print(gcf, end=" ")
+            _model.fit(self.data, y)
+
+            _score = _model.score(self.data, y)
+            print(_score)
+            gcr = GridCellResult(_model, self.predictand, self.predictors, _score)
+        except:
+            print("FAIL")
+            gcr = None
+
+        return gcr
+
+
+class OldShen2017Model(object):
     """ Encapsulation of predictive model derived by Shen et al (2017).
 
     This class is designed to help automate the process of fitting the Shen et
@@ -746,27 +805,3 @@ class Shen2017Model(object):
             pickle.dump(self, f)
 
 
-def load_future_pm25(filename):
-    """ Helper function to read in one of Lu's processed output files for
-    a CMIP5 simulation. """
-    import rpy2.robjects as robjects
-    # from datetime import datetime
-    robjects.r['load'](filename)
-
-    lons = np.array(robjects.r['lon.frame'])
-    lats = np.array(robjects.r['lat.frame'])
-    times = np.array(robjects.r['CMIP5.time'])
-    times = [pd.Timestamp(year, month, 1) for year, month in times.tolist()]
-
-    pm25_local = np.array(robjects.r['CMIP5.local.PM'])
-    pm25_hybrid = np.array(robjects.r['CMIP5.hybrid.PM'])
-
-    ds = xr.Dataset({'PM25_local': (['lon', 'lat', 'time'], pm25_local),
-                     'PM25_hybrid': (['lon', 'lat', 'time'], pm25_hybrid)},
-                     coords={'lon': lons, 'lat': lats, 'time': times})
-
-    return ds
-
-
-if __name__ == "__main__":
-    pass
