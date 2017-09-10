@@ -212,7 +212,12 @@ class DatasetModel(object):
                 return None, None
 
         # Fit the cell kernel if all is well
-        return gcf, self.cell_kernel(gcf)
+        try:
+            gcr = self.cell_kernel(gcf)
+        except:
+            gcr = None
+
+        return gcf, gcr
 
     def fit_parallel(self, n_jobs=3, **kwargs):
         """ Similar to fit(), but using a parallel invocation. """
@@ -286,6 +291,8 @@ class DatasetModel(object):
         """
 
         if preprocess and (self.preprocessor is not None):
+            if self.verbose > 0:
+                print("Pre-processing data...")
             X = clone(self.preprocessor).fit_transform(X)
 
         # Drop fields which aren't in the list of predictors
