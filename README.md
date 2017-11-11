@@ -1,4 +1,4 @@
-# Statistical $\mathrm{PM}_{2.5}$ Modeling
+# Statistical PM2.5 Modeling
 
 This is a working project folder containing experiments and software engineering geared towards studying relationships between meteorology and air quality. It began as an independent validation of the study by [Shen et al, 2017][shen_2017], but evolved into a more complex study aimed at fundamental questions about statistical modeling of these relationships and their utility with respect to detailed chemical transport modeling.
 
