@@ -155,4 +155,3 @@ class PCRModelCV(DatasetModel):
                              _score)
 
         return gcr
-
