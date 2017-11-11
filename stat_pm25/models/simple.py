@@ -13,47 +13,67 @@ from .. sklearn import (DatasetModel, GridCellResult,
 
 import numpy as np
 
-class PCRModel(DatasetModel):
-    """ Implements a principal component regression model based on our
-    DatasetModel formulation.
 
+class PCRModel(DatasetModel):
+    """ Performs principal component regression model on gridded data.
+
+    This class uses the `DatasetModel` framework to implement a principal
+    component regression - a linear regression on a set of features which has
+    been pre-processed using principal component analysis. It only requires a
+    single additional argument on top of `DatasetModel`, the number of
+    components to retain.
+
+    This example illustrates how you can very easily put together complex
+    analyses and deploy them onto your gridded model output, all using very
+    simple building blocks.
 
     """
 
     def __init__(self, *args, n_components=3, **kwargs):
+        # If you need to add arguments, add them as named keyword arguments in
+        # the appropriate place (as shown above), and set them first in the
+        # method.
         self.n_components = n_components
+
+        # Modify any pre-set parameters, or hard-code them otherwise. For
+        # instance, if you want to pre-process your data, this would be the
+        # place to specify how to do so. Doing so here has the advantage that
+        # you will be able to immediately apply your `predict()` method
+        # to new data without pre-processing it - all that logic will be
+        # saved
 
         # Zero out dilat and dilon, since we don't need to search around
         # neighboring grid cells
         self.dilat = self.dilon = 0
 
+        # Set a pre-processor pipeline
         self.preprocessor = Pipeline([
             ('detrend', YearlyMovingAverageDetrender())
         ])
 
+        # Call the parent superconstructor
         super().__init__(*args, **kwargs)
 
     def cell_kernel(self, gcf):
-        """ Using the information in the passed GridCellFactor, prepare
-        data transformations and fit a model.
-
-        This method should be prepared by the user; it's the only element
-        that needs to be built to create a new machine learning model. It
-        should return the original GridCellFactor passed to it, as well as
-        a GridCellResult encapsulating the model fit for this GridCellFactor.
+        """ Fit a model at a single grid cell.
 
         """
 
-        # Get predictand data
-        local_selector = DatasetSelector(
-            sel='isel', lon=gcf.ilon, lat=gcf.ilat
-        )
-        y = local_selector.fit_transform(self.data[self.predictand])
+        # First, get the predictand data at the grid cell we care about. We
+        # don't necessarily have to be super pedantic about this; we can just
+        # use normal xarray selection methods if we want, although comments
+        # below is how we could accomplish this using our specialized
+        # Transformer classes
+        # local_selector = DatasetSelector(
+        #     sel='isel', lon=gcf.ilon, lat=gcf.ilat
+        # )
+        # y = local_selector.fit_transform(self.data[self.predictand])
+        y = self.data[self.predictand].isel(lat=gcf.ilat, lon=gcf.ilon)
 
-        # Prepare features timelines. We want to fully include all the steps
+        # Prepare features timeseries. We want to fully include all the steps
         # to extract our features from the original, full dataset in here
         # so that our logic for re-applying the pipeline for prediction
-        # later on is solvent.
+        # later on will work similarly
         _model = Pipeline([
             ('subset_latlon', DatasetSelector(
                 sel='isel', lon=gcf.ilon, lat=gcf.ilat)
@@ -64,24 +84,20 @@ class PCRModel(DatasetModel):
             ('pca', PCA(n_components=self.n_components)),
             ('linear', LinearRegression()),
         ])
-        try:
-            # print(gcf, end=" ")
-            _model.fit(self.data, y)
 
-            _score = _model.score(self.data, y)
-            # print(_score)
-            gcr = GridCellResult(_model, self.predictand, self.predictors, _score)
-        except:
-            # print("FAIL")
-            gcr = None
+        # Fit the model/pipeline
+        _model.fit(self.data, y)
+        # Calculate some sort of score for archival
+        _score = _model.score(self.data, y)
+        # Encapsulate the result within a GridCellResukt
+        gcr = GridCellResult(_model, self.predictand, self.predictors, _score)
 
         return gcr
 
 
 class PCRModelCV(DatasetModel):
-    """ Implements a principal component regression model based on our
-    DatasetModel formulation.
-
+    """ Similar to PCRModelCV, but incorporate cross-validation logic into
+    the `cell_kernel` method.
 
     """
 
@@ -99,21 +115,9 @@ class PCRModelCV(DatasetModel):
         super().__init__(*args, **kwargs)
 
     def cell_kernel(self, gcf):
-        """ Using the information in the passed GridCellFactor, prepare
-        data transformations and fit a model.
-
-        This method should be prepared by the user; it's the only element
-        that needs to be built to create a new machine learning model. It
-        should return the original GridCellFactor passed to it, as well as
-        a GridCellResult encapsulating the model fit for this GridCellFactor.
-
-        """
 
         # Get predictand data
-        local_selector = DatasetSelector(
-            sel='isel', lon=gcf.ilon, lat=gcf.ilat
-        )
-        y = local_selector.fit_transform(self.data[self.predictand])
+        y = self.data[self.predictand].isel(lat=gcf.ilat, lon=gcf.ilon)
 
         # Prepare features timelines
         _model = Pipeline([
@@ -151,3 +155,4 @@ class PCRModelCV(DatasetModel):
                              _score)
 
         return gcr
+
