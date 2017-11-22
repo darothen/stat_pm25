@@ -247,13 +247,36 @@ def _clean_xy(x, y):
     return df.x.values, df.y.values
 
 
+def shift_lons(ds, lon_dim='lon', neg_dateline=True):
+    """ Shift longitudes from [0, 360] to [-180, 180]
+
+    If `neg_dateline` is True (by default), then a longitude of 180 deg
+    stays the same; else it is converted to -180 deg (180 W).
+
+    """
+    ds_copy = ds.copy()
+
+    lons = ds_copy[lon_dim].values
+    new_lons = np.empty_like(lons)
+    if neg_dateline:
+        mask = lons >= 180
+    else:
+        mask = lons > 180
+
+    new_lons[mask] = -(360. - lons[mask])
+    new_lons[~mask] = lons[~mask]
+
+    ds_copy[lon_dim].values = new_lons
+
+    return ds_copy
+
+
 def shift_roll(data, dim='lon'):
     """ Shift longitude values in a Dataset or DataArray from [0, 360] to
     [-180, 180] and then roll the longitude dimension so that it is ordered
     and monotonic.
 
     """
-    from darpy import shift_lons
     return shift_lons(data).roll(lon=len(data[dim])//2 - 1)
 
 
