@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import r2_score
 from sklearn.base import clone
 
+#: local 'skleran' tools
 from .. sklearn import (DatasetModel, GridCellResult,
                         YearlyMovingAverageDetrender, DatasetSelector,
                         FieldExtractor, Normalizer, DatasetAdapter,

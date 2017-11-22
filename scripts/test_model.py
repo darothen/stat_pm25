@@ -5,15 +5,14 @@ from sklearn.pipeline import  Pipeline
 from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA
 
-from air_quality.models.shen2017_pipeline import (GridCellFactor,
-                                                  SVDModeCompressor,
-                                                  SelectBestFeatures,
-                                                  SelectBestFeaturesWithCV)
-from air_quality.sklearn import (DatasetSelector, MonthSelector,
-                                 YearlyMovingAverageDetrender,
-                                 FieldExtractor, Normalizer, Stacker,
-                                 DatasetAdapter, DatasetFeatureUnion,
-                                 dataset_yearly_loo_cv)
+from stat_pm25.sklearn import (GridCellFactor, DatasetSelector, MonthSelector,
+                               YearlyMovingAverageDetrender, FieldExtractor,
+                               Normalizer, Stacker, DatasetAdapter,
+                               DatasetFeatureUnion, dataset_yearly_loo_cv)
+from stat_pm25.models.shen2017 import (SelectBestFeatures,
+                                       SelectBestFeaturesWithCV,
+                                       SVDModeCompressor)
+
 
 grid_stack = ['lat', 'lon']
 cell_name = 'cell'

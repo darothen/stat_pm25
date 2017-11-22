@@ -1,3 +1,6 @@
+## Process Lu's original observational data into a single netCDF file that
+## will be easier to read in Python
+
 library(ncdf4)
 
 ## PRECIPITATION
