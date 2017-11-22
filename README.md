@@ -6,19 +6,28 @@ I've published this work-in-progress since I have stepped away from full-time ba
 
 ## Installation / Dependencies
 
-You should use the attached [environment.yml] to setup an environment for running this package; it should simplify the process of getting the necessary dependencies. First, execute:
+The easiest way to begin installing this code is to clone it directly from GitHub:
 
+    $ git clone https://www.github.com/darothen/stat_pm25
+
+You should use the attached [environment.yml] to setup an environment for running this package; it should simplify the process of getting the necessary dependencies. First, change into the git repository directory and execute:
+
+    $ cd stat_pm25
     $ conda env create -f environment.yml
 
 This will create a virtual environment called *stat_pm25*, which will contain all the dependencies to use this package and reproduce this work. To use this code, first activate the environment
 
     $ source activate stat_pm25
 
-and then use **setuptools** to install this package:
+and then use **setuptools** to install this package from the cloned directory:
 
+    $ pwd
+    /path/to/where/you/cloned/stat_pm25
     $ pip install -e .
 
-You should then be able to import everything and work with it.
+You should then be able to import everything from this toolkit and work with it. For example, open up a Python interpreter and make sure the following import does not fail:
+
+    >>> import stat_pm25
 
 ## Introduction to Modeling Tools
 
