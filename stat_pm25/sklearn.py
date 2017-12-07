@@ -6,6 +6,7 @@ or collections of data.
 
 from itertools import product
 from functools import reduce
+import warnings
 
 from sklearn.base import TransformerMixin, clone
 from sklearn.model_selection import BaseCrossValidator
@@ -215,6 +216,7 @@ class DatasetModel(object):
         try:
             gcr = self.cell_kernel(gcf)
         except:
+            warnings.warn('Fit failed at {}'.format(gcf))
             gcr = None
 
         return gcf, gcr
@@ -246,29 +248,24 @@ class DatasetModel(object):
             self._grid_cell_factors.append(gcf)
             self._grid_cell_results.append(gcr)
 
-    # def get_result_stat(self, attr, result=True):
-    #     """ Fetch a result statistic from the fitted model; if `result` is False,
-    #     then this will check if the attribute as attached to the GridCellResult
-    #     itself instead of the OLSResult saved therein.
-    #
-    #     """
-    #
-    #     # Construct a template/strawman Dataset for holding the attribute data
-    #     attr_ds = self.data.copy().drop(self.predictors)
-    #     ref_field = attr_ds[self.predictand].isel(time=0)
-    #     attr_ds[attr] = (ref_field.dims, np.zeros_like(ref_field.values)*np.nan)
-    #     _attr_vals = attr_ds[attr].values
-    #
-    #     for gcr, gcf in self._gcr_gcf_iter:
-    #         if gcr is None:
-    #             continue
-    #
-    #         if result:
-    #             _attr_vals[gcf.ilat, gcf.ilon] = getattr(gcr.result, attr)
-    #         else:
-    #             _attr_vals[gcf.ilat, gcf.ilon] = getattr(gcr, attr)
-    #
-    #     return attr_ds[[attr, ]]
+    def get_result_stat(self, attr):
+        """ Fetch a result statistic from the fitted model which has
+        been saved with each GridCellResult.
+        """
+
+        # Construct a template/strawman Dataset for holding the attribute data
+        attr_ds = self.data.copy().drop(self.predictors)
+        ref_field = attr_ds[self.predictand].isel(time=0)
+        attr_ds[attr] = (ref_field.dims, np.zeros_like(ref_field.values)*np.nan)
+        _attr_vals = attr_ds[attr].values
+
+        for gcr, gcf in self._gcr_gcf_iter:
+            if gcr is None:
+                continue
+
+            _attr_vals[gcf.ilat, gcf.ilon] = getattr(gcr, attr)
+
+        return attr_ds[[attr, ]]
 
     @property
     def score(self):
