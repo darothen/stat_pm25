@@ -604,6 +604,16 @@ class Normalizer(TransformerMixin):
         return X
 
 
+class Renamer(TransformerMixin, NoFitMixin):
+    """ Rename fields in a Dataset """
+
+    def __init__(self, rename_map):
+        self.rename_map = rename_map
+
+    def transform(self, X):
+        return X.rename(self.rename_map)
+
+
 class Stacker(TransformerMixin, NoFitMixin):
     """ Transform a Dataset or DataArray by stacking the given dimensions. """
 
@@ -690,8 +700,10 @@ class DatasetFunctionTransformer(TransformerMixin, NoFitMixin):
     def transform(self, X):
         _X = X if not self.copy else X.copy()
         func = getattr(_X, self.func_name)
-        print(func, *self.args)
         res = func(*self.args)
+        # Rename to reflect func
+        new_names = {v: self.func_name + "_" + v for v in res.data_vars}
+        res = res.rename(new_names)
         return res
 
 
