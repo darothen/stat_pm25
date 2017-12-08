@@ -106,7 +106,7 @@ def flatten_times(ds, time='time', aux_times='ic'):
     dimension, unravel these realizations and linearly increment the time to
     produce a longer, flat timeseries. """
 
-    nt = len(ds[time]) // 12
+    nt = len(ds[time])
 
     _dss = []
     for i in range(len(ds[aux_times])):

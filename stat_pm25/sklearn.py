@@ -5,7 +5,7 @@ or collections of data.
 """
 
 from itertools import product
-from functools import reduce
+from functools import reduce, partial
 import warnings
 
 from sklearn.base import TransformerMixin, clone
@@ -665,16 +665,34 @@ class YearlyMovingAverageDetrender(TransformerMixin):
         return X_detrend.dropna(self.dim, how='all')
 
 
-class DatasetFunctionTransformer(TransformerMixin, NoFitMixin):
+class DatasetApplyFunctionTransformer(TransformerMixin, NoFitMixin):
     """ Apply an arbitrary function to each field in a Dataset. """
 
-    def __init__(self, func, copy=False):
+    def __init__(self, func, args, copy=False):
         self.func = func
         self.copy = copy
+        self.args = args
 
     def transform(self, X):
         _X = X if not self.copy else X.copy()
-        return _X.apply(self.func)
+        res = _X.apply(self.func, args=self.args)
+        return res
+
+
+class DatasetFunctionTransformer(TransformerMixin, NoFitMixin):
+    """ Execute a Dataset reduction by name """
+
+    def __init__(self, func_name, args, copy=False):
+        self.func_name = func_name
+        self.copy = copy
+        self.args = args
+
+    def transform(self, X):
+        _X = X if not self.copy else X.copy()
+        func = getattr(_X, self.func_name)
+        print(func, *self.args)
+        res = func(*self.args)
+        return res
 
 
 class DatasetAdapter(TransformerMixin, NoFitMixin):
